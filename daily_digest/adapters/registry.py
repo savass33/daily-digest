@@ -1,18 +1,19 @@
 """Adapter registry with auto-detection.
 
 Only adapters whose store actually exists are enabled, so the same install
-works on a machine with opencode only, [CC] only, Codex only, or any mix.
+works on a machine with opencode only, [CC] only, Codex only, Verboo Code only,
+or any mix.
 """
 
 from __future__ import annotations
 
 from ..config import Config
 from .base import SessionAdapter
-from .claude import ClaudeAdapter
+from .claude import ClaudeAdapter, VerbooAdapter
 from .codex import CodexAdapter
 from .opencode import OpencodeAdapter
 
-ALL_ADAPTERS = (OpencodeAdapter, ClaudeAdapter, CodexAdapter)
+ALL_ADAPTERS = (OpencodeAdapter, ClaudeAdapter, VerbooAdapter, CodexAdapter)
 
 
 def build_adapters(config: Config, only: list[str] | None = None) -> list[SessionAdapter]:

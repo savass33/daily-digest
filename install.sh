@@ -73,16 +73,21 @@ OPENCODE_DIR="$HOME/.config/opencode"
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
 VERBOO_DIR="$HOME/.verboo"
+
+# Claude Code is detected by its CLI or its main config file. The ~/.claude
+# directory alone is NOT enough: Verboo Code creates/uses it as a legacy store.
 HAVE_OPENCODE=0; HAVE_CLAUDE=0; HAVE_CODEX=0; HAVE_VERBOO=0
 [ -d "$OPENCODE_DIR" ] && HAVE_OPENCODE=1
-[ -d "$CLAUDE_DIR" ] && HAVE_CLAUDE=1
+if command -v claude >/dev/null 2>&1 || [ -f "$HOME/.claude.json" ]; then
+  HAVE_CLAUDE=1
+fi
 [ -d "$CODEX_DIR" ] && HAVE_CODEX=1
 [ -d "$VERBOO_DIR" ] && HAVE_VERBOO=1
 if [ "$HAVE_OPENCODE" = 0 ] && [ "$HAVE_CLAUDE" = 0 ] && [ "$HAVE_CODEX" = 0 ] && [ "$HAVE_VERBOO" = 0 ]; then
   bad "nenhum agente suportado encontrado (opencode / [CC] / Codex / Verboo Code)"
 else
   [ "$HAVE_OPENCODE" = 1 ] && ok "opencode detectado"
-  [ "$HAVE_CLAUDE" = 1 ] && ok "[CC] detectado"
+  [ "$HAVE_CLAUDE" = 1 ] && ok "[CC] detectado" || info "Claude Code não detectado (sem CLI/~/.claude.json)"
   [ "$HAVE_CODEX" = 1 ] && ok "Codex detectado"
   [ "$HAVE_VERBOO" = 1 ] && ok "Verboo Code detectado"
 fi
@@ -248,6 +253,13 @@ if [ "$HAVE_CLAUDE" = 1 ]; then
   else
     warn "[CC]: CLI 'claude' não encontrada; registre o MCP manualmente (ver README)"
   fi
+else
+  # No real [CC]: remove a stale skill so Verboo Code (which reads ~/.claude as
+  # a legacy store) does not show a duplicate /resumo-do-dia.
+  if [ -d "$CLAUDE_DIR/skills/resumo-do-dia" ]; then
+    rm -rf "$CLAUDE_DIR/skills/resumo-do-dia"
+    info "[CC] ausente: removida skill legada duplicada em ~/.claude/skills"
+  fi
 fi
 
 # --- Codex -----------------------------------------------------------------
@@ -257,27 +269,43 @@ if [ "$HAVE_CODEX" = 1 ]; then
   backup "$CODEX_DIR/prompts/resumo-do-dia.md"
   cp "$REPO_DIR/integrations/codex/resumo-do-dia.md" "$CODEX_DIR/prompts/resumo-do-dia.md"
   ok "Codex: prompt /resumo-do-dia instalado"
-  if ! grep -q "mcp_servers.daily_digest" "$CODEX_CFG" 2>/dev/null; then
+  if [ ! -f "$CODEX_CFG" ] || ! grep -q "mcp_servers.daily_digest" "$CODEX_CFG" 2>/dev/null; then
     [ -f "$CODEX_CFG" ] && backup "$CODEX_CFG"
     {
       printf "\n[mcp_servers.daily_digest]\ncommand = \"%s\"\n" "$LAUNCHER"
     } >> "$CODEX_CFG"
-    ok "Codex: MCP daily_digest registrado"
+    # Validate the TOML we just wrote; restore the backup on corruption.
+    if [ -n "$PYTHON" ] && ! "$PYTHON" -c "import tomllib,sys; tomllib.load(open(sys.argv[1],'rb'))" "$CODEX_CFG" 2>/dev/null; then
+      warn "Codex: config.toml inválido após edição; restaurando backup"
+      LATEST_BAK="$(ls -t "$CODEX_CFG".bak.* 2>/dev/null | head -1)"
+      [ -n "$LATEST_BAK" ] && cp "$LATEST_BAK" "$CODEX_CFG"
+    else
+      ok "Codex: MCP daily_digest registrado (toml válido)"
+    fi
   else
     ok "Codex: MCP daily_digest já registrado"
   fi
 fi
 
 # --- Verboo Code -----------------------------------------------------------
-# Verboo Code is a [CC]-style agent: it reads skills from ~/.verboo/skills and
-# registers MCP servers via `verboo mcp add`.
+# Verboo Code is a [CC]-style agent. Its user-skills dir is ~/.verboo/skills,
+# but it ALSO reads ~/.claude/skills as a legacy store. To avoid the slash menu
+# showing /resumo-do-dia more than once:
+#   - if real [CC] is installed, rely on ~/.claude/skills (shared) and do not
+#     create the native copy;
+#   - otherwise install the native copy only.
+# Commands are not installed (the skill is enough) to prevent a third entry.
 if [ "$HAVE_VERBOO" = 1 ]; then
-  mkdir -p "$VERBOO_DIR/skills/resumo-do-dia" "$VERBOO_DIR/commands"
-  backup "$VERBOO_DIR/skills/resumo-do-dia/SKILL.md"
-  cp "$REPO_DIR/integrations/claude/resumo-do-dia/SKILL.md" "$VERBOO_DIR/skills/resumo-do-dia/SKILL.md"
-  backup "$VERBOO_DIR/commands/resumo-do-dia.md"
-  cp "$REPO_DIR/integrations/claude/resumo-do-dia/SKILL.md" "$VERBOO_DIR/commands/resumo-do-dia.md"
-  ok "Verboo Code: skill e comando /resumo-do-dia instalados"
+  rm -f "$VERBOO_DIR/commands/resumo-do-dia.md"
+  if [ "$HAVE_CLAUDE" = 1 ]; then
+    rm -rf "$VERBOO_DIR/skills/resumo-do-dia"
+    info "Verboo Code: usando a skill de ~/.claude/skills (evita duplicata)"
+  else
+    mkdir -p "$VERBOO_DIR/skills/resumo-do-dia"
+    backup "$VERBOO_DIR/skills/resumo-do-dia/SKILL.md"
+    cp "$REPO_DIR/integrations/claude/resumo-do-dia/SKILL.md" "$VERBOO_DIR/skills/resumo-do-dia/SKILL.md"
+    ok "Verboo Code: skill /resumo-do-dia instalada"
+  fi
   if command -v verboo >/dev/null 2>&1; then
     verboo mcp remove daily_digest --scope user >/dev/null 2>&1 || true
     if verboo mcp add --scope user daily_digest -- "$LAUNCHER" >/dev/null 2>&1; then

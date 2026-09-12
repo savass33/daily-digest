@@ -1,0 +1,6 @@
+{"type":"mode","mode":"normal","sessionId":"vb-ses-001","version":"unknown"}
+{"type":"system","subtype":"informational","content":"Auto mode lets Verboo Code handle permission prompts automatically — Verboo Code checks each tool call.","cwd":"/home/u/vbproj","timestamp":"2026-09-12T11:00:00Z","uuid":"b0","version":"unknown"}
+{"type":"user","message":{"role":"user","content":"qq eu fiz hoje?"},"cwd":"/home/u/vbproj","timestamp":"2026-09-12T11:00:01Z","uuid":"b1","version":"unknown","sessionId":"vb-ses-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Vou verificar."},{"type":"tool_use","name":"Read","input":{"file_path":"/home/u/vbproj/notes.md"}}]},"cwd":"/home/u/vbproj","timestamp":"2026-09-12T11:00:05Z","uuid":"b2","version":"unknown","sessionId":"vb-ses-001"}
+{"type":"user","message":{"role":"user","content":"<command-name>/resumo-do-dia</command-name>"},"cwd":"/home/u/vbproj","timestamp":"2026-09-12T11:00:06Z","uuid":"b3","version":"unknown","isMeta":true,"sessionId":"vb-ses-001"}
+{"type":"user","message":{"role":"user","content":"gera o resumo de hoje"},"cwd":"/home/u/vbproj","timestamp":"2026-09-12T11:00:07Z","uuid":"b4","version":"unknown","sessionId":"vb-ses-001"}

@@ -54,6 +54,13 @@ def main() -> int:
         print(_line(True, "digest hoje", f"{digest['totals']['sessions']} sessões, "
                                         f"{len(digest['projects'])} projetos, "
                                         f"workspace={digest['workspace']}"))
+        counts: dict[str, int] = {}
+        for project in digest["projects"]:
+            for session in project["sessions"]:
+                counts[session["source"]] = counts.get(session["source"], 0) + 1
+        if counts:
+            breakdown = ", ".join(f"{k}={v}" for k, v in sorted(counts.items()))
+            print(_line(True, "por fonte", breakdown))
         if digest.get("sources_failed"):
             print(_line(False, "sources com erro", json.dumps(digest["sources_failed"], ensure_ascii=False)))
         if digest.get("warnings"):

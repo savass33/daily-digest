@@ -12,7 +12,8 @@ Your agent's own model writes the summary, saves a Markdown file and — if you
 configure it — sends it on WhatsApp. **No CLI, no LLM API key, no background
 process.**
 
-> Works with opencode and Verboo Code (same store), [CC] and Codex CLI.
+> Works with opencode, Verboo Code, [CC] and Codex CLI — each stores sessions in
+> its own place, and the digest tags every item with its origin.
 
 ## How it works
 
@@ -28,6 +29,18 @@ codex *.jsonl  ─┘                                          │
   content reaches the agent.
 - Multiple agents/sessions running at the same time are all captured; sub-agents
   are folded into their parent so the same work is not counted twice.
+
+### Where each agent stores sessions
+
+| Agent | Location | Notes |
+|---|---|---|
+| opencode | `~/.local/share/opencode/opencode.db` | single SQLite DB (WAL) |
+| [CC] | `~/.claude/projects/<enc-cwd>/<id>.jsonl` | detected by its semver `version` field |
+| Verboo Code | `~/.claude/projects/...` (or `VERBOO_PROJECTS_DIR`; also `~/.openclaude/projects`) | shares the [CC] layout; detected by `version: "unknown"` / the "Verboo Code" banner, so it is tagged `[verboo]`, not `[claude]` |
+| Codex | `~/.codex/sessions/**/rollout-*.jsonl` (+ `archived_sessions`) | |
+
+Verboo Code also reads `~/.claude/skills` as a *legacy* store, which is why the
+installer avoids installing two copies of `/resumo-do-dia` (see below).
 
 ## Requirements
 
@@ -159,8 +172,13 @@ claude mcp add --scope user --transport stdio daily_digest -- ~/.local/bin/daily
 # command = "/home/USER/.local/bin/daily-digest-mcp"
 ```
 
-> Verboo Code is a [CC]-style agent: it reads skills from `~/.verboo/skills/`.
-> The installer registers only the permissive `daily_digest` server; see
+> **Verboo Code and [CC] share `~/.claude`.** Verboo reads `~/.claude/skills` as
+> a legacy store, so the installer writes the skill to exactly one place to keep
+> the `/` menu clean: `~/.claude/skills` when real [CC] is installed, otherwise
+> `~/.verboo/skills`. If `/resumo-do-dia` appears more than once, run
+> `./install.sh` again — it removes the duplicate skill and the stale
+> `~/.verboo/commands` copy. The installer registers only the permissive
+> `daily_digest` server; see
 > [Hard isolation with profiles](#hard-isolation-with-profiles) to add a
 > workspace-locked server.
 

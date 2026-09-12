@@ -20,6 +20,13 @@ db = "~/.local/share/opencode/opencode.db"
 enabled = "auto"
 dir = "~/.claude/projects"
 
+[sources.verboo]
+# Verboo Code stores transcripts in the Claude Code layout by default
+# (~/.claude/projects), unless VERBOO_PROJECTS_DIR is set. Sessions are
+# auto-detected and tagged as [verboo] vs [claude].
+enabled = "auto"
+dir = "~/.claude/projects"
+
 [sources.codex]
 enabled = "auto"
 dir = "~/.codex"

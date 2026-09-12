@@ -81,6 +81,9 @@ class Config:
     claude: SourceConfig = field(
         default_factory=lambda: SourceConfig(dir="~/.claude/projects")
     )
+    verboo: SourceConfig = field(
+        default_factory=lambda: SourceConfig(dir="~/.claude/projects")
+    )
     codex: SourceConfig = field(default_factory=lambda: SourceConfig(dir="~/.codex"))
     git: GitConfig = field(default_factory=GitConfig)
     redact: RedactConfig = field(default_factory=RedactConfig)
@@ -137,7 +140,7 @@ def load_config(path: str | None = None) -> Config:
         if "cache_path" in general:
             cfg.cache_path = general["cache_path"]
         sources = raw.get("sources", {})
-        for name in ("opencode", "claude", "codex"):
+        for name in ("opencode", "claude", "verboo", "codex"):
             if name in sources and isinstance(sources[name], dict):
                 _apply(getattr(cfg, name), sources[name])
         if "git" in raw:

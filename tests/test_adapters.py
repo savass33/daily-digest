@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from daily_digest.config import Config, SourceConfig  # noqa: E402
-from daily_digest.adapters.claude import ClaudeAdapter  # noqa: E402
+from daily_digest.adapters.claude import ClaudeAdapter, VerbooAdapter  # noqa: E402
 from daily_digest.adapters.codex import CodexAdapter  # noqa: E402
 from daily_digest.normalize import PROMPT, TOOL_CALL  # noqa: E402
 from daily_digest.redact import Redactor  # noqa: E402
@@ -32,6 +32,7 @@ class ClaudeAdapterTest(unittest.TestCase):
         self.assertEqual(session.source, "claude")
         self.assertEqual(session.title, "Setup do terminal")
         self.assertEqual(session.project_path, "/home/u/proj")
+        self.assertEqual(session.id, "ses-001")
 
     def test_extracts_prompts_and_tool_calls(self):
         session = self.adapter.collect(WINDOW_START, WINDOW_END)[0]
@@ -42,10 +43,56 @@ class ClaudeAdapterTest(unittest.TestCase):
         self.assertEqual(len(tool_calls), 1)
         self.assertEqual(tool_calls[0].files, ["/home/u/proj/config"])
 
-    def test_skips_sidechain(self):
+    def test_skips_sidechain_and_meta(self):
         session = self.adapter.collect(WINDOW_START, WINDOW_END)[0]
         commands = [e.command for e in session.events if e.kind == TOOL_CALL]
         self.assertNotIn("echo hello", commands)
+        prompts = [e.text for e in session.events if e.kind == PROMPT]
+        self.assertTrue(all("Caveat:" not in p for p in prompts))
+
+
+class VerbooAdapterTest(unittest.TestCase):
+    def setUp(self):
+        self.cfg = Config(verboo=SourceConfig(dir=os.path.join(FIXTURES, "verboo")))
+        self.adapter = VerbooAdapter(self.cfg)
+        os.environ.pop("VERBOO_PROJECTS_DIR", None)
+
+    def test_detects_verboo_source(self):
+        sessions = self.adapter.collect(WINDOW_START, WINDOW_END)
+        self.assertEqual(len(sessions), 1)
+        session = sessions[0]
+        self.assertEqual(session.source, "verboo")
+        self.assertEqual(session.id, "vb-ses-001")
+        self.assertEqual(session.project_path, "/home/u/vbproj")
+
+    def test_real_prompt_extracted_and_command_meta_skipped(self):
+        session = self.adapter.collect(WINDOW_START, WINDOW_END)[0]
+        prompts = [e.text for e in session.events if e.kind == PROMPT]
+        self.assertIn("qq eu fiz hoje?", prompts)
+        self.assertIn("gera o resumo de hoje", prompts)
+        self.assertTrue(all("<command-name>" not in p for p in prompts))
+
+
+class FamilySeparationTest(unittest.TestCase):
+    """Claude and Verboo transcripts live in the same dir; each adapter must
+    return only its own source."""
+
+    def setUp(self):
+        base = os.path.join(FIXTURES, "family")
+        self.cfg = Config(
+            claude=SourceConfig(dir=base), verboo=SourceConfig(dir=base)
+        )
+        os.environ.pop("VERBOO_PROJECTS_DIR", None)
+
+    def test_claude_only(self):
+        sessions = ClaudeAdapter(self.cfg).collect(WINDOW_START, WINDOW_END)
+        self.assertTrue(all(s.source == "claude" for s in sessions))
+        self.assertEqual(len(sessions), 1)
+
+    def test_verboo_only(self):
+        sessions = VerbooAdapter(self.cfg).collect(WINDOW_START, WINDOW_END)
+        self.assertTrue(all(s.source == "verboo" for s in sessions))
+        self.assertEqual(len(sessions), 1)
 
 
 class CodexAdapterTest(unittest.TestCase):
