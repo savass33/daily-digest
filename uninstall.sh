@@ -81,8 +81,12 @@ for d in "$CLAUDE_DIR"/skills/resumo-*; do
   [ -d "$d" ] && run rm -rf "$d" && ok "[CC]: $(basename "$d")"
 done
 if command -v claude >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = 1 ]; then skip "dry-run: claude mcp remove daily_digest"
-  else claude mcp remove daily_digest --scope user >/dev/null 2>&1 && ok "[CC]: MCP daily_digest" || skip "[CC]: MCP daily_digest não encontrado"; fi
+  REMOVED=""
+  for name in daily_digest daily_digest_work daily_digest_personal; do
+    if [ "$DRY_RUN" = 1 ]; then skip "dry-run: claude mcp remove $name"
+    else claude mcp remove "$name" --scope user >/dev/null 2>&1 && REMOVED="$REMOVED $name"; fi
+  done
+  [ -n "$REMOVED" ] && ok "[CC]: MCP$REMOVED" || skip "[CC]: nenhum MCP encontrado"
 fi
 
 # Codex: prompts
@@ -115,8 +119,12 @@ for f in "$VERBOO_DIR"/commands/resumo-*.md; do
   [ -f "$f" ] && run rm -f "$f" && ok "Verboo Code: $(basename "$f")"
 done
 if command -v verboo >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = 1 ]; then skip "dry-run: verboo mcp remove daily_digest"
-  else verboo mcp remove daily_digest --scope user >/dev/null 2>&1 && ok "Verboo Code: MCP daily_digest" || skip "Verboo Code: MCP daily_digest não encontrado"; fi
+  REMOVED=""
+  for name in daily_digest daily_digest_work daily_digest_personal; do
+    if [ "$DRY_RUN" = 1 ]; then skip "dry-run: verboo mcp remove $name"
+    else verboo mcp remove "$name" --scope user >/dev/null 2>&1 && REMOVED="$REMOVED $name"; fi
+  done
+  [ -n "$REMOVED" ] && ok "Verboo Code: MCP$REMOVED" || skip "Verboo Code: nenhum MCP encontrado"
 fi
 
 # Launchers

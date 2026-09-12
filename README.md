@@ -65,7 +65,6 @@ Inside any agent session:
 |---|---|
 | `/resumo-do-dia` | infers the scope from the current project |
 | `/resumo-do-dia me resume as coisas da verboo hoje` | natural-language scope |
-| `/resumo-work` / `/resumo-personal` | per-workspace commands (when configured) |
 
 Outputs (Markdown and/or WhatsApp) come from the config, not from arguments.
 
@@ -101,7 +100,10 @@ A path that matches **more than one** workspace is treated as a conflict and is
 
 ### Hard isolation with profiles
 
-Set the active profile to lock the server to a single workspace:
+By default the installer registers **only the permissive server**
+(`daily_digest`): the workspace is chosen per call (scope inference or the
+`workspace` argument). To lock a session to a single workspace, set the active
+profile:
 
 ```toml
 [general]
@@ -109,10 +111,14 @@ profile = "work"      # or "all" (default)
 ```
 
 or per process with the `DAILY_DIGEST_PROFILE` environment variable (takes
-precedence). When `install.sh` finds workspaces, it also registers
-`daily_digest_work` / `daily_digest_personal` server entries (with the env var
-baked in) plus `/resumo-work` and `/resumo-personal`, so a work session cannot
-read personal data even if asked.
+precedence). To run an agent that is *physically unable* to read another
+workspace, register an extra server with the env var baked in and point your
+command at it:
+
+```bash
+verboo mcp add --scope user --env DAILY_DIGEST_PROFILE=work --transport stdio \
+  daily_digest_work -- ~/.local/bin/daily-digest-mcp
+```
 
 > This is a **guardrail against accidental mixing**, not a security boundary
 > against someone editing the config/env. Real isolation would need separate
@@ -144,8 +150,6 @@ The installer registers the MCP on every agent it finds. To do it by hand with
 ```bash
 # Verboo Code
 verboo mcp add --scope user daily_digest -- ~/.local/bin/daily-digest-mcp
-verboo mcp add --scope user --env DAILY_DIGEST_PROFILE=work --transport stdio \
-  daily_digest_work -- ~/.local/bin/daily-digest-mcp
 
 # [CC]
 claude mcp add --scope user --transport stdio daily_digest -- ~/.local/bin/daily-digest-mcp
@@ -156,8 +160,9 @@ claude mcp add --scope user --transport stdio daily_digest -- ~/.local/bin/daily
 ```
 
 > Verboo Code is a [CC]-style agent: it reads skills from `~/.verboo/skills/`.
-> For per-workspace isolation, register `daily_digest_<ws>` with the
-> `DAILY_DIGEST_PROFILE` env var (the installer does this automatically).
+> The installer registers only the permissive `daily_digest` server; see
+> [Hard isolation with profiles](#hard-isolation-with-profiles) to add a
+> workspace-locked server.
 
 ## MCP tools
 
