@@ -22,6 +22,7 @@ CACHE_DIR="$HOME/.cache/daily-digest"
 OPENCODE_DIR="$HOME/.config/opencode"
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
+VERBOO_DIR="$HOME/.verboo"
 
 PURGE=0; REMOVE_CONFIG=0; ASSUME_YES=0; DRY_RUN=0
 for arg in "$@"; do
@@ -104,6 +105,18 @@ print(n)
 EOF
 )
   [ "$RESULT" != "0" ] && ok "Codex: $RESULT seção(ões)" || skip "Codex: nenhuma seção encontrada"
+fi
+
+# Verboo Code: skills, commands and MCP
+for d in "$VERBOO_DIR"/skills/resumo-*; do
+  [ -d "$d" ] && run rm -rf "$d" && ok "Verboo Code: $(basename "$d")"
+done
+for f in "$VERBOO_DIR"/commands/resumo-*.md; do
+  [ -f "$f" ] && run rm -f "$f" && ok "Verboo Code: $(basename "$f")"
+done
+if command -v verboo >/dev/null 2>&1; then
+  if [ "$DRY_RUN" = 1 ]; then skip "dry-run: verboo mcp remove daily_digest"
+  else verboo mcp remove daily_digest --scope user >/dev/null 2>&1 && ok "Verboo Code: MCP daily_digest" || skip "Verboo Code: MCP daily_digest não encontrado"; fi
 fi
 
 # Launchers

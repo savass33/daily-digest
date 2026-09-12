@@ -32,10 +32,10 @@ codex *.jsonl  ─┘                                          │
 ## Requirements
 
 - Python **3.11+** (uses `venv` and `tomllib`)
-- At least one of: opencode / [CC] / Codex
+- At least one of: opencode / [CC] / Codex / Verboo Code
 - Internet **only during installation** (to install the package)
 - **Linux or macOS**. Windows is not supported in this version.
-- Optional: `git` (commit collection), `claude` CLI (MCP auto-registration)
+- Optional: `git` (commit collection), `claude`/`verboo` CLI (MCP auto-registration)
 
 ## Installation
 
@@ -135,6 +135,29 @@ tool, the step is skipped — nothing breaks.
 Running the digest more than once a day **versions** the file: the previous
 version is moved to `archive/`, and archives older than
 `archive_retention_days` are pruned.
+
+### Manual MCP registration
+
+The installer registers the MCP on every agent it finds. To do it by hand with
+`~/.local/bin/daily-digest-mcp`:
+
+```bash
+# Verboo Code
+verboo mcp add --scope user daily_digest -- ~/.local/bin/daily-digest-mcp
+verboo mcp add --scope user --env DAILY_DIGEST_PROFILE=work --transport stdio \
+  daily_digest_work -- ~/.local/bin/daily-digest-mcp
+
+# [CC]
+claude mcp add --scope user --transport stdio daily_digest -- ~/.local/bin/daily-digest-mcp
+
+# Codex (~/.codex/config.toml)
+# [mcp_servers.daily_digest]
+# command = "/home/USER/.local/bin/daily-digest-mcp"
+```
+
+> Verboo Code is a [CC]-style agent: it reads skills from `~/.verboo/skills/`.
+> For per-workspace isolation, register `daily_digest_<ws>` with the
+> `DAILY_DIGEST_PROFILE` env var (the installer does this automatically).
 
 ## MCP tools
 
