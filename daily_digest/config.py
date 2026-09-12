@@ -32,6 +32,17 @@ class SourceConfig:
 class GitConfig:
     enabled: bool = True
     roots: list[str] = field(default_factory=lambda: ["~/Documentos"])
+    author: str = ""
+
+
+@dataclass
+class WorkspaceConfig:
+    name: str = ""
+    aliases: list[str] = field(default_factory=list)
+    match_paths: list[str] = field(default_factory=list)
+    match_remotes: list[str] = field(default_factory=list)
+    output_dir: str = ""
+    whatsapp_target: str = ""
 
 
 @dataclass
@@ -52,11 +63,14 @@ class DigestLimits:
     max_prompts_per_session: int = 6
     max_files_per_session: int = 40
     max_commands_per_session: int = 12
+    max_output_bytes: int = 24000
+    archive_retention_days: int = 90
 
 
 @dataclass
 class Config:
     timezone: str = "local"
+    profile: str = ""
     output_dir: str = "~/daily"
     cache_path: str = "~/.cache/daily-digest/cache.db"
     opencode: SourceConfig = field(
@@ -72,7 +86,9 @@ class Config:
     redact: RedactConfig = field(default_factory=RedactConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     limits: DigestLimits = field(default_factory=DigestLimits)
+    workspaces: dict[str, WorkspaceConfig] = field(default_factory=dict)
     loaded_from: str = ""
+    load_error: str = ""
 
     def resolved_output_dir(self) -> Path:
         return Path(expand(self.output_dir))
@@ -95,16 +111,27 @@ def _apply(target: Any, data: dict[str, Any]) -> None:
 
 
 def load_config(path: str | None = None) -> Config:
-    """Load configuration, falling back to defaults when the file is absent."""
+    """Load configuration, falling back to defaults when the file is absent.
+
+    A malformed config never crashes the server: the error is recorded in
+    ``load_error`` and built-in defaults are used.
+    """
     cfg = Config()
     candidate = path or os.environ.get("DAILY_DIGEST_CONFIG") or DEFAULT_CONFIG_PATH
     candidate = expand(candidate)
     if os.path.isfile(candidate):
-        with open(candidate, "rb") as fh:
-            raw = tomllib.load(fh)
+        try:
+            with open(candidate, "rb") as fh:
+                raw = tomllib.load(fh)
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            cfg.load_error = f"{candidate}: {exc}"
+            cfg.loaded_from = candidate
+            return cfg
         general = raw.get("general", {})
         if "timezone" in general:
             cfg.timezone = general["timezone"]
+        if "profile" in general:
+            cfg.profile = general["profile"]
         if "output_dir" in general:
             cfg.output_dir = general["output_dir"]
         if "cache_path" in general:
@@ -121,5 +148,16 @@ def load_config(path: str | None = None) -> Config:
             _apply(cfg.output, raw["output"])
         if "digest" in raw:
             _apply(cfg.limits, raw["digest"])
+        workspaces = raw.get("workspaces", {})
+        if isinstance(workspaces, dict):
+            for ws_name, ws_data in workspaces.items():
+                ws = WorkspaceConfig(name=ws_name)
+                if isinstance(ws_data, dict):
+                    _apply(ws, ws_data)
+                cfg.workspaces[ws_name] = ws
         cfg.loaded_from = candidate
+
+    env_profile = os.environ.get("DAILY_DIGEST_PROFILE")
+    if env_profile:
+        cfg.profile = env_profile
     return cfg

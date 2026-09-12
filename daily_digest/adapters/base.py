@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 
 from ..cache import Cache
 from ..config import Config
@@ -20,6 +20,10 @@ class SessionAdapter:
         raise NotImplementedError
 
     def collect(
-        self, start: datetime, end: datetime, cache: Optional[Cache] = None
+        self,
+        start: datetime,
+        end: datetime,
+        cache: Optional[Cache] = None,
+        path_filter: Optional[Callable[[str], bool]] = None,
     ) -> list[Session]:
         raise NotImplementedError

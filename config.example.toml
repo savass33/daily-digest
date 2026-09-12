@@ -4,6 +4,10 @@
 [general]
 # "local" uses the machine timezone; or set an IANA zone, e.g. "America/Fortaleza".
 timezone = "local"
+# Active profile. "all" (default) allows every workspace; set to a workspace
+# name (e.g. "work") to lock the server to that scope. Can also be set with the
+# DAILY_DIGEST_PROFILE environment variable (takes precedence).
+profile = "all"
 output_dir = "~/daily"
 cache_path = "~/.cache/daily-digest/cache.db"
 
@@ -24,6 +28,10 @@ dir = "~/.codex"
 enabled = true
 # Repos are discovered from the project directories that had AI sessions.
 roots = ["~/Documentos"]
+# Commit author used to attribute commits to you. If empty, the global
+# git user.email is used; if neither exists, commits are collected but marked
+# as unattributed (they may be other people's).
+author = ""
 
 [redact]
 enabled = true
@@ -31,7 +39,7 @@ enabled = true
 extra_patterns = []
 
 [output]
-# Default outputs. Override per call: /resumo-do-dia markdown|whatsapp|both|none
+# Default outputs. Override per call via the command's scope text / config.
 markdown = true
 whatsapp = false
 # Ask for confirmation before sending on WhatsApp.
@@ -41,3 +49,26 @@ review_before_send = true
 max_prompts_per_session = 6
 max_files_per_session = 40
 max_commands_per_session = 12
+# Upper bound for the JSON returned to the agent (protects the model context).
+max_output_bytes = 24000
+# Delete archived daily files older than this many days (0 disables pruning).
+archive_retention_days = 90
+
+# ---------------------------------------------------------------------------
+# Workspaces: isolate work from personal so a digest never mixes them.
+# Classification precedence: `.daily-digest.toml` marker in a repo, then
+# match_paths, then match_remotes. Unmatched projects go to "other" (only
+# visible when the workspace is "all").
+# ---------------------------------------------------------------------------
+# [workspaces.work]
+# aliases = ["verboo", "verbeux"]
+# match_paths = ["~/Documentos/Work/**"]
+# match_remotes = ["github.com/your-org/*"]
+# output_dir = "~/daily/work"
+# whatsapp_target = "5511999999999"
+#
+# [workspaces.personal]
+# aliases = ["pessoal"]
+# match_paths = ["~/projetos/**"]
+# match_remotes = ["github.com/your-user/*"]
+# output_dir = "~/daily/personal"

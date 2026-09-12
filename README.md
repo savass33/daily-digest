@@ -1,141 +1,215 @@
 # daily-digest
 
-Um servidor **MCP local** que lê as suas sessões de agentes de IA (opencode, [CC] e Codex)
-na sua máquina, normaliza, **remove segredos** e entrega os dados para o próprio agente
-resumir. No fim do dia, dentro de qualquer sessão, você digita:
+A **local MCP server** that reads your AI coding sessions (opencode, [CC] and
+Codex) on your machine, normalizes them, **removes secrets** and hands compact
+data to the agent itself. At the end of the day, inside any session, you type:
 
 ```
 /resumo-do-dia
 ```
 
-O modelo da sua sessão monta o resumo, grava um Markdown e — se você configurar — envia
-no WhatsApp. **Sem CLI, sem chave de API de LLM, sem processo em background.**
+Your agent's own model writes the summary, saves a Markdown file and — if you
+configure it — sends it on WhatsApp. **No CLI, no LLM API key, no background
+process.**
 
-## Como funciona
+> Works with opencode and Verboo Code (same store), [CC] and Codex CLI.
+
+## How it works
 
 ```
-opencode.db  ─┐
-claude *.jsonl ─┼─▶ adapters ─▶ normalização ─▶ redação ─▶ MCP collect_digest ─▶ seu agente resume
-codex *.jsonl  ─┘                                              │
-                                                               └─▶ write_digest ─▶ ~/daily/YYYY-MM-DD.md
+opencode.db   ─┐
+claude *.jsonl ─┼─▶ adapters ─▶ normalize ─▶ redact ─▶ MCP collect_digest ─▶ your agent summarizes
+codex *.jsonl  ─┘                                          │
+                                                           └─▶ write_digest ─▶ ~/daily/...
 ```
 
-- A **sumarização é feita pelo modelo do agente** onde você digitou o prompt.
-- O MCP só **coleta, redige e grava**. Nada de segredo sai da máquina sem passar pela redação.
-- Sessões de agentes diferentes rodando ao mesmo tempo são todas capturadas; sub-agentes
-  são agregados ao pai (sem contar trabalho duas vezes).
+- Summarization is done by the **model of the agent where you typed the prompt**.
+- The MCP only collects, redacts and writes. Secrets are removed **before** any
+  content reaches the agent.
+- Multiple agents/sessions running at the same time are all captured; sub-agents
+  are folded into their parent so the same work is not counted twice.
 
-## Requisitos
+## Requirements
 
-- Python **3.11+** (usa `venv` e `tomllib`)
-- Pelo menos um dos agentes: opencode, [CC] ou Codex
-- Acesso à internet **apenas na instalação** (para baixar o SDK `mcp`)
+- Python **3.11+** (uses `venv` and `tomllib`)
+- At least one of: opencode / [CC] / Codex
+- Internet **only during installation** (to install the package)
+- **Linux or macOS**. Windows is not supported in this version.
+- Optional: `git` (commit collection), `claude` CLI (MCP auto-registration)
 
-## Instalação
+## Installation
 
 ```bash
-git clone <url-do-repo> daily-digest
+git clone <repo-url> daily-digest
 cd daily-digest
 ./install.sh
 ```
 
-O `install.sh` faz um preflight (Python, venv, integridade do `opencode.db`, PyPI, permissões),
-cria um venv em `~/.local/share/daily-digest/venv`, instala o SDK `mcp`, registra o MCP
-**apenas nos agentes detectados** e instala o comando `/resumo-do-dia`. É idempotente e faz
-backup (`.bak`) antes de editar qualquer configuração.
+The installer runs a preflight (Python, venv, `opencode.db` integrity, PyPI,
+permissions), creates a venv, installs the package **into the venv** (so the
+launcher does not depend on the repo path), registers the MCP **only on the
+agents it finds**, and installs `/resumo-do-dia`. It is idempotent and backs up
+(`.bak.<timestamp>`) any command/skill file before overwriting.
 
-### Configuração
+Run a health check any time:
 
-Edite `~/.config/daily-digest/config.toml` (criado a partir de `config.example.toml`):
+```bash
+daily-digest-doctor
+```
+
+## Usage
+
+Inside any agent session:
+
+| Command | Effect |
+|---|---|
+| `/resumo-do-dia` | infers the scope from the current project |
+| `/resumo-do-dia me resume as coisas da verboo hoje` | natural-language scope |
+| `/resumo-work` / `/resumo-personal` | per-workspace commands (when configured) |
+
+Outputs (Markdown and/or WhatsApp) come from the config, not from arguments.
+
+## Workspaces: keep work and personal apart
+
+A digest must never mix personal projects into professional ones. Configure
+workspaces in `~/.config/daily-digest/config.toml`:
+
+```toml
+[workspaces.work]
+aliases = ["verboo", "verbeux"]
+match_paths = ["~/Documentos/Work/**"]
+match_remotes = ["github.com/your-org/*"]
+output_dir = "~/daily/work"
+whatsapp_target = "5511999999999"
+
+[workspaces.personal]
+aliases = ["pessoal"]
+match_paths = ["~/projetos/**"]
+match_remotes = ["github.com/your-user/*"]
+output_dir = "~/daily/personal"
+```
+
+Classification precedence for a project:
+
+1. a `.daily-digest.toml` marker in the repo (`context = "work"`)
+2. `match_paths` globs
+3. `match_remotes` globs (normalized `host/org/repo`)
+4. `other` — visible only when the scope is `all`
+
+A path that matches **more than one** workspace is treated as a conflict and is
+**not** assigned to any named workspace.
+
+### Hard isolation with profiles
+
+Set the active profile to lock the server to a single workspace:
+
+```toml
+[general]
+profile = "work"      # or "all" (default)
+```
+
+or per process with the `DAILY_DIGEST_PROFILE` environment variable (takes
+precedence). When `install.sh` finds workspaces, it also registers
+`daily_digest_work` / `daily_digest_personal` server entries (with the env var
+baked in) plus `/resumo-work` and `/resumo-personal`, so a work session cannot
+read personal data even if asked.
+
+> This is a **guardrail against accidental mixing**, not a security boundary
+> against someone editing the config/env. Real isolation would need separate
+> OS accounts.
+
+## Outputs
 
 ```toml
 [output]
-markdown = true     # grava ~/daily/YYYY-MM-DD.md
-whatsapp = false    # envia no WhatsApp (se a sessão tiver ferramenta de envio)
-review_before_send = true
+markdown = true             # write ~/daily[/<workspace>]/YYYY-MM-DD.md
+whatsapp = false            # delegate sending to the agent
+review_before_send = true   # confirm before sending
 ```
 
-## Uso
+WhatsApp is **delegated to the agent**: if the session has a WhatsApp tool
+(e.g. whatsmiau via Composio), the agent builds the short version and sends it
+to the workspace's `whatsapp_target` after confirmation. If there is no such
+tool, the step is skipped — nothing breaks.
 
-Dentro de qualquer sessão do seu agente:
+Running the digest more than once a day **versions** the file: the previous
+version is moved to `archive/`, and archives older than
+`archive_retention_days` are pruned.
 
-| Comando | Efeito |
+## MCP tools
+
+| Tool | Description |
 |---|---|
-| `/resumo-do-dia` | usa o config |
-| `/resumo-do-dia markdown` | só grava o Markdown |
-| `/resumo-do-dia whatsapp` | só envia no WhatsApp |
-| `/resumo-do-dia both` | grava e envia |
-| `/resumo-do-dia none` | apenas mostra no chat |
+| `resolve_scope(text, project)` | Maps free text / a path to a workspace scope. Returns `needs_clarification` + `candidates` when ambiguous. |
+| `collect_digest(date, sources, output, workspace, project, query)` | Sessions of the day, grouped by project, redacted and compact, plus git commits. |
+| `list_sessions(period, source, workspace, project)` | List sessions. |
+| `search_sessions(query, source, since, until, workspace)` | Keyword search across agents and dates. |
+| `write_digest(markdown, date, workspace)` | Write the workspace's daily file (validated against the profile). |
+| `whoami()` | Active profile, workspaces and config path. |
 
-### WhatsApp
+`date`: `today`, `yesterday` or `YYYY-MM-DD`.
 
-O envio é **delegado ao agente**. Se a sua sessão tiver uma ferramenta de WhatsApp
-(por exemplo, `whatsmiau` via Composio), o agente monta a versão curta e envia após a sua
-confirmação. Se não tiver, o envio é simplesmente pulado — nada quebra.
+All returned content is framed as **untrusted data**; the templates instruct
+the agent to never follow instructions found inside session content.
 
-## Ferramentas MCP
+## Privacy
 
-| Tool | Descrição |
-|---|---|
-| `collect_digest(date, sources, output)` | Sessões do dia agrupadas por projeto, redigidas e compactas + commits git |
-| `list_sessions(period, source)` | Lista as sessões do período |
-| `search_sessions(query, source)` | Busca por palavra-chave entre agentes |
-| `write_digest(markdown, date)` | Grava `~/daily/<date>.md` (versão anterior vai para `archive/`) |
+- Everything is local and offline, except installing the package.
+- Redaction runs **in the collector**: keys (`sk-`, `vbk_`, `ghp_`, …),
+  `TOKEN=…`, `PASSWORD=…`, `Bearer …`, credentials in URLs and private keys
+  become `***REDACTED***`; `$HOME` paths become `~`.
+- The **cache is redacted before writing** (`~/.cache/daily-digest/cache.db`,
+  mode `0600`), so secrets never sit on disk in plain text.
+- Output files are written `0600`; directories `0700`.
+- The digest contains only prompts, files touched, commands and todos — **no**
+  tool output and **no** reasoning blocks.
+- **Known limitations:** redaction targets secret patterns, not arbitrary PII
+  (names, emails, customer data). Add your own regexes via
+  `[redact] extra_patterns`. Session content is summarized by the model of the
+  agent you invoked, so it reaches that provider — that is your responsibility.
 
-`date`: `today`, `yesterday` ou `YYYY-MM-DD`. `sources`: `all` ou `opencode,claude,codex`.
+## Configuration reference
 
-### Registro manual do MCP
+`~/.config/daily-digest/config.toml` (created from `config.example.toml`). A
+malformed TOML never crashes the server: defaults are used and the error is
+reported by `daily-digest-doctor`.
 
-O `install.sh` registra automaticamente quando encontra a CLI/config do agente. Se precisar
-fazer na mão, use o launcher `~/.local/bin/daily-digest-mcp`:
+Key sections: `[general]` (timezone, profile, output_dir, cache_path),
+`[sources.*]` (enabled/db/dir), `[git]` (enabled, roots, author),
+`[redact]`, `[output]`, `[digest]` (limits, `max_output_bytes`,
+`archive_retention_days`) and `[workspaces.*]`.
 
-**[CC]**
+Set `[git] author` (or `git config --global user.email`) so commits are
+attributed to you. Without an identity, commits are collected but flagged
+`git_attributed = false` — they may be other people's.
+
+## Doctor and uninstall
+
 ```bash
-claude mcp add --scope user --transport stdio daily_digest -- ~/.local/bin/daily-digest-mcp
+daily-digest-doctor          # config, sources, scope and a dry-run of today
+./uninstall.sh               # remove integrations (asks confirmation)
+./uninstall.sh --purge       # also remove venv + cache
+./uninstall.sh --dry-run     # show what would be removed
 ```
 
-**Codex** (`~/.codex/config.toml`):
-```toml
-[mcp_servers.daily_digest]
-command = "/home/SEU_USUARIO/.local/bin/daily-digest-mcp"
+`~/daily` files are never touched by the uninstaller unless you ask.
+
+## Migration notes
+
+- The command argument is now a **free-text scope** (e.g. "coisas da verboo"),
+  not `markdown|whatsapp|both|none`. Choose outputs in the config.
+- Existing `/resumo-do-dia` files are backed up before being replaced.
+- Without any `[workspaces]` section the behavior is the old one (a single
+  digest), so existing installs keep working.
+
+## Development
+
+```bash
+python3 -m unittest discover -s tests    # 28 tests
+python3 -m daily_digest.doctor
 ```
 
-**opencode** (`~/.config/opencode/opencode.json`):
-```json
-{
-  "mcp": {
-    "daily_digest": { "type": "local", "command": ["/home/SEU_USUARIO/.local/bin/daily-digest-mcp"], "enabled": true }
-  }
-}
-```
+## License
 
-> Após registrar, **reinicie o agente** para ele carregar o novo MCP.
-
-## Privacidade
-
-- Tudo local e offline, exceto a instalação do SDK.
-- A redação roda **no coletor**: chaves (`sk-`, `vbk_`, `ghp_`, ...), `TOKEN=...`,
-  `PASSWORD=...`, `Bearer`, credenciais em URL e chaves privadas são substituídas por
-  `***REDACTED***`; caminhos `$HOME` viram `~`.
-- O digest **não** inclui saída de ferramentas nem blocos de raciocínio, apenas prompts,
-  arquivos tocados, comandos e todos — mantendo o contexto do agente enxuto.
-
-## Estrutura
-
-```
-daily_digest/
-├─ mcp_server.py          # servidor MCP (SDK mcp)
-├─ digest.py              # janela, compressão, redação, agrupamento
-├─ normalize.py           # modelo Session/Event + rollup de sub-agentes
-├─ redact.py              # remoção de segredos
-├─ cache.py               # cache incremental (SQLite WAL)
-├─ git_source.py          # commits dos repos que tiveram sessão
-└─ adapters/              # opencode, claude, codex, registry
-integrations/             # /resumo-do-dia para cada agente
-install.sh                # preflight + instalação
-```
-
-## Licença
-
-MIT. As regras de parsing dos formatos [CC]/Codex foram inspiradas no
+MIT. The [CC]/Codex parsing rules were inspired by
 [ai-sessions-mcp](https://github.com/yoavf/ai-sessions-mcp) (MIT).

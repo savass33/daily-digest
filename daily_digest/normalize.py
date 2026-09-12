@@ -137,26 +137,60 @@ def rollup(sessions: list[Session]) -> list[Session]:
     Sub-sessions (opencode ``parent_id``, Claude sidechains already dropped at
     parse time, Codex delegations) stay attached to the parent as compact
     children so the same work is never counted twice at the top level.
+
+    Orphans -- children whose parent is not in the set (the parent started
+    before the window, or was filtered out) -- are attached to a synthetic
+    stub parent instead of being promoted to a normal top-level session. This
+    keeps their work visible without misattributing it as an independent task.
     """
-    by_id = {s.id: s for s in sessions}
-    top: list[Session] = []
+    by_id: dict[str, Session] = {s.id: s for s in sessions}
+
+    # Create stub parents for any missing parent referenced by a child.
+    stubs: dict[str, Session] = {}
     for session in sessions:
-        parent = by_id.get(session.parent_id) if session.parent_id else None
-        if parent is not None:
-            session.is_subagent = True
-            parent.events.append(
-                Event(
-                    ts=session.started_at,
-                    kind=ASSISTANT,
-                    text=f"[subagent:{session.agent or 'agent'}] {session.title}",
-                    tool="subagent",
-                )
+        pid = session.parent_id
+        if pid and pid not in by_id and pid not in stubs:
+            stubs[pid] = Session(
+                id=pid,
+                source=session.source,
+                project_path=session.project_path,
+                title="(sessão pai fora da janela)",
+                started_at=session.started_at,
+                updated_at=session.updated_at,
+                agent=session.agent,
             )
-            for event in session.events:
-                if event.kind == PROMPT:
-                    parent.events.append(event)
-        else:
-            top.append(session)
+    by_id.update(stubs)
+
+    def attach(parent: Session, child: Session) -> None:
+        child.is_subagent = True
+        parent.events.append(
+            Event(
+                ts=child.started_at,
+                kind=ASSISTANT,
+                text=f"[subagent:{child.agent or 'agent'}] {child.title}",
+                tool="subagent",
+            )
+        )
+        for event in child.events:
+            if event.kind == PROMPT:
+                parent.events.append(event)
+
+    def depth(session: Session) -> int:
+        d = 0
+        seen: set[str] = set()
+        pid = session.parent_id
+        while pid and pid in by_id and pid not in seen:
+            seen.add(pid)
+            d += 1
+            pid = by_id[pid].parent_id
+        return d
+
+    children = [s for s in by_id.values() if s.parent_id and s.parent_id in by_id]
+    for child in sorted(children, key=depth, reverse=True):
+        attach(by_id[child.parent_id], child)
+
+    attached = {s.id for s in children}
+    top = [s for s in by_id.values() if s.id not in attached]
     for session in top:
         session.events.sort(key=lambda e: e.ts)
     return top

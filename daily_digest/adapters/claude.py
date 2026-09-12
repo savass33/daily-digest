@@ -11,7 +11,7 @@ import json
 import os
 import glob
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 
 from ..cache import Cache
 from ..config import Config, expand
@@ -32,7 +32,11 @@ class ClaudeAdapter(SessionAdapter):
         return os.path.isdir(self.base_dir())
 
     def collect(
-        self, start: datetime, end: datetime, cache: Optional[Cache] = None
+        self,
+        start: datetime,
+        end: datetime,
+        cache: Optional[Cache] = None,
+        path_filter: Optional[Callable[[str], bool]] = None,
     ) -> list[Session]:
         if not self.available():
             return []
@@ -52,6 +56,8 @@ class ClaudeAdapter(SessionAdapter):
                     continue
                 if cache:
                     cache.put(self.name, session_id, fingerprint, session)
+            if path_filter is not None and not path_filter(session.project_path):
+                continue
             if session.updated_at >= start and session.started_at <= end:
                 sessions.append(session)
         return sessions
