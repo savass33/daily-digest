@@ -1,0 +1,43 @@
+# daily-digest configuration
+# Copy to ~/.config/daily-digest/config.toml and edit as needed.
+
+[general]
+# "local" uses the machine timezone; or set an IANA zone, e.g. "America/Fortaleza".
+timezone = "local"
+output_dir = "~/daily"
+cache_path = "~/.cache/daily-digest/cache.db"
+
+[sources.opencode]
+# "auto" = enable when the store exists. Set true to force, false to disable.
+enabled = "auto"
+db = "~/.local/share/opencode/opencode.db"
+
+[sources.claude]
+enabled = "auto"
+dir = "~/.claude/projects"
+
+[sources.codex]
+enabled = "auto"
+dir = "~/.codex"
+
+[git]
+enabled = true
+# Repos are discovered from the project directories that had AI sessions.
+roots = ["~/Documentos"]
+
+[redact]
+enabled = true
+# Extra regexes; each match is replaced with ***REDACTED***.
+extra_patterns = []
+
+[output]
+# Default outputs. Override per call: /resumo-do-dia markdown|whatsapp|both|none
+markdown = true
+whatsapp = false
+# Ask for confirmation before sending on WhatsApp.
+review_before_send = true
+
+[digest]
+max_prompts_per_session = 6
+max_files_per_session = 40
+max_commands_per_session = 12

@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"configura o terminal ghostty"},"cwd":"/home/u/proj","timestamp":"2026-09-12T10:00:00Z","uuid":"a1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"ok, vou editar a config"},{"type":"tool_use","name":"Edit","input":{"file_path":"/home/u/proj/config","old_string":"a","new_string":"b"}}]},"cwd":"/home/u/proj","timestamp":"2026-09-12T10:00:05Z","uuid":"a2"}
+{"type":"user","message":{"role":"user","content":"agora deixa roxo"},"cwd":"/home/u/proj","timestamp":"2026-09-12T10:01:00Z","uuid":"a3"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"echo hello"}}]},"cwd":"/home/u/proj","timestamp":"2026-09-12T10:01:10Z","uuid":"a4","isSidechain":true}
+{"type":"summary","summary":"Setup do terminal","cwd":"/home/u/proj","timestamp":"2026-09-12T10:02:00Z"}

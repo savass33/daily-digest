@@ -1,0 +1,5 @@
+{"type":"session_meta","timestamp":"2026-09-12T10:00:00Z","payload":{"id":"codex-abc","cwd":"/home/u/proj2"}}
+{"type":"response_item","timestamp":"2026-09-12T10:00:01Z","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>cwd=/home/u/proj2</environment_context>corrige o parser de datas"}]}}
+{"type":"response_item","timestamp":"2026-09-12T10:00:03Z","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"vou rodar os testes"}]}}
+{"type":"response_item","timestamp":"2026-09-12T10:00:04Z","payload":{"type":"function_call","name":"shell","arguments":"{\"command\":\"npm test\"}"}}
+{"type":"response_item","timestamp":"2026-09-12T10:01:00Z","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"agora adiciona testes de fuso"}]}}
