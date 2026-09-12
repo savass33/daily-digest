@@ -133,8 +133,24 @@ command -v git >/dev/null 2>&1 && ok "git disponível" || warn "git ausente — 
 command -v sqlite3 >/dev/null 2>&1 && info "sqlite3 CLI presente" || info "sqlite3 CLI ausente (opcional)"
 command -v jq >/dev/null 2>&1 && info "jq presente" || info "jq ausente (opcional)"
 if command -v git >/dev/null 2>&1; then
-  AUTHOR="$(git config --global user.email 2>/dev/null || true)"
-  [ -n "$AUTHOR" ] && info "git author: $AUTHOR" || warn "git user.email vazio — commits serão coletados sem atribuição"
+  AUTHOR=""
+  if [ -f "$CONFIG_FILE" ] && [ -n "$PYTHON" ]; then
+    AUTHOR=$("$PYTHON" - "$CONFIG_FILE" 2>/dev/null <<'EOF'
+import sys, tomllib
+try:
+    with open(sys.argv[1], "rb") as fh:
+        print((tomllib.load(fh).get("git") or {}).get("author", ""))
+except Exception:
+    print("")
+EOF
+)
+  fi
+  [ -n "$AUTHOR" ] || AUTHOR="$(git config --global user.email 2>/dev/null || true)"
+  if [ -n "$AUTHOR" ]; then
+    info "git author: $AUTHOR"
+  else
+    warn "git author vazio — commits serão coletados sem atribuição (defina [git] author no config)"
+  fi
 fi
 
 if [ "$FAILURES" -gt 0 ]; then
