@@ -37,6 +37,7 @@ UNKNOWN_VERSIONS = {"", "unknown", "none", "null"}
 META_PREFIXES = (
     "caveat:",
     "<command-name>",
+    "<command-message>",
     "<bash-input>",
     "<local-command-stdout>",
     "<local-command-caveat>",
