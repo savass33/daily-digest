@@ -70,7 +70,12 @@ class VerbooAdapterTest(unittest.TestCase):
         prompts = [e.text for e in session.events if e.kind == PROMPT]
         self.assertIn("qq eu fiz hoje?", prompts)
         self.assertIn("gera o resumo de hoje", prompts)
-        self.assertTrue(all("<command-name>" not in p for p in prompts))
+        self.assertTrue(
+            all(
+                "<command-name>" not in p and "<command-message>" not in p
+                for p in prompts
+            )
+        )
 
 
 class FamilySeparationTest(unittest.TestCase):
