@@ -154,7 +154,9 @@ def _compact_session(
     classifier: Classifier,
 ) -> dict[str, Any] | None:
     in_window = [e for e in session.events if start <= e.ts < end]
-    if not in_window and not (start <= session.updated_at < end):
+    # A session touched inside the window with zero events is a /resume stub
+    # (or an abandoned reopen): it carries no work of the day, only noise.
+    if not in_window:
         return None
 
     prompts: list[str] = []
@@ -182,10 +184,16 @@ def _compact_session(
         prompts = head + ["…"] + prompts[-2:]
 
     classification = classifier.classify(session.project_path)
+    # Multi-day sessions keep the title of the FIRST prompt ever, which
+    # describes a task from a previous day and reads like cross-session
+    # contamination in the digest. Prefer the first prompt inside the window.
+    title = session.title
+    if prompts:
+        title = prompts[0][:80]
     return {
         "source": session.source,
         "id": session.id,
-        "title": redactor.text(session.title),
+        "title": redactor.text(title),
         "project": redactor.path(session.project_path),
         "workspace": classification.workspace,
         "model": session.model,
